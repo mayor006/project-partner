@@ -283,46 +283,78 @@ function Stage2Structure({ project, advance }: { project: Project; advance: () =
 function Stage3Chapters({ project, chapters: initialChapters, advance }: { project: Project; chapters: Chapter[]; advance: () => void }) {
   const [chapters, setChapters] = useState<Chapter[]>(initialChapters)
   const [writing, setWriting] = useState<number | null>(null)
+  const [writingPart, setWritingPart] = useState<1 | 2 | null>(null)
   const [expanded, setExpanded] = useState<number | null>(null)
   const [error, setError] = useState('')
   const router = useRouter()
 
   const chapterTitles = ['Introduction', 'Literature Review', 'Research Methodology', 'Data Presentation and Analysis', 'Summary, Conclusion and Recommendations']
 
-  async function writeChapter(chapterNum: number) {
-    setWriting(chapterNum); setError('')
-    try {
-      const res = await fetch('/api/ai/chapter', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId: project.id, title: project.title, department: project.department, level: project.level, chapterNumber: chapterNum, chapterTitle: chapterTitles[chapterNum - 1] }),
-      })
+  async function fetchChapterPart(chapterNum: number, part: 1 | 2): Promise<string> {
+    const res = await fetch('/api/ai/chapter', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        projectId: project.id,
+        title: project.title,
+        department: project.department,
+        level: project.level,
+        chapterNumber: chapterNum,
+        chapterTitle: chapterTitles[chapterNum - 1],
+        part,
+      }),
+    })
 
-      // Handle non-JSON responses (e.g. Vercel timeout HTML page, gateway errors)
-      const contentType = res.headers.get('content-type') ?? ''
-      if (!contentType.includes('application/json')) {
-        if (res.status === 504) {
-          throw new Error('Chapter generation took too long and timed out. Please try again — sometimes the model is faster on retry.')
-        }
-        throw new Error(`Server returned ${res.status}. Please try again.`)
+    // Handle non-JSON responses (e.g. Vercel timeout HTML)
+    const contentType = res.headers.get('content-type') ?? ''
+    if (!contentType.includes('application/json')) {
+      if (res.status === 504) {
+        throw new Error(`Part ${part} timed out. Please retry the chapter.`)
       }
+      throw new Error(`Server returned ${res.status} on part ${part}. Please retry.`)
+    }
 
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || `Server error (${res.status})`)
-      if (!data.content) throw new Error('Empty response from AI. Please retry.')
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error || `Server error on part ${part}`)
+    if (!data.content) throw new Error(`Empty response on part ${part}. Please retry.`)
+    return data.content as string
+  }
+
+  async function writeChapter(chapterNum: number) {
+    setWriting(chapterNum); setError(''); setWritingPart(1)
+    try {
+      // Part 1
+      const part1 = await fetchChapterPart(chapterNum, 1)
+
+      // Part 2
+      setWritingPart(2)
+      const part2 = await fetchChapterPart(chapterNum, 2)
+
+      // Stitch parts with a single blank line between
+      const fullContent = `${part1.trim()}\n\n${part2.trim()}`
 
       const supabase = createClient()
-      const wordCount = data.content.split(/\s+/).length
+      const wordCount = fullContent.split(/\s+/).filter(Boolean).length
       const { data: saved, error: dbError } = await supabase.from('pp_chapters').upsert({
-        project_id: project.id, chapter_number: chapterNum, title: chapterTitles[chapterNum - 1],
-        content: data.content, word_count: wordCount, status: 'completed',
+        project_id: project.id,
+        chapter_number: chapterNum,
+        title: chapterTitles[chapterNum - 1],
+        content: fullContent,
+        word_count: wordCount,
+        status: 'completed',
       }, { onConflict: 'project_id,chapter_number' }).select().single()
 
       if (dbError) throw new Error(`Save failed: ${dbError.message}`)
-      if (saved) setChapters(prev => [...prev.filter(c => c.chapter_number !== chapterNum), saved as Chapter].sort((a, b) => a.chapter_number - b.chapter_number))
+      if (saved) setChapters(prev =>
+        [...prev.filter(c => c.chapter_number !== chapterNum), saved as Chapter]
+          .sort((a, b) => a.chapter_number - b.chapter_number)
+      )
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to write chapter')
-    } finally { setWriting(null) }
+    } finally {
+      setWriting(null)
+      setWritingPart(null)
+    }
   }
 
   const allDone = chapterTitles.every((_, i) => chapters.find(c => c.chapter_number === i + 1 && c.status === 'completed'))
@@ -335,8 +367,8 @@ function Stage3Chapters({ project, chapters: initialChapters, advance }: { proje
         iconColor="#7c3aed" iconBg="rgba(124,58,237,0.12)" />
 
       <AIMessage delay={0.1}>
-        <p className="mb-2">I&apos;ll write each chapter individually — 3,000–7,000 words each with proper academic structure and citations.</p>
-        <p style={{ color: 'var(--foreground-muted)' }}>Write them one at a time. Each takes about 45–60 seconds.</p>
+        <p className="mb-2">I&apos;ll write each chapter in two parts — 3,000–4,000 words total per chapter (~14–16 pages double-spaced) with proper academic structure and citations.</p>
+        <p style={{ color: 'var(--foreground-muted)' }}>Write them one at a time. Each chapter takes about 90–110 seconds (two API calls).</p>
         {totalWords > 0 && (
           <div className="mt-3">
             <span className="px-2.5 py-1 rounded-lg text-xs font-medium" style={{ background: 'rgba(255,255,255,0.1)', color: '#fff' }}>
@@ -389,7 +421,8 @@ function Stage3Chapters({ project, chapters: initialChapters, advance }: { proje
                   )}
                   {isWriting && (
                     <span className="text-xs flex items-center gap-1.5" style={{ color: '#fff' }}>
-                      <Loader2 size={11} className="animate-spin" color="#fff" /> Writing…
+                      <Loader2 size={11} className="animate-spin" color="#fff" />
+                      Writing part {writingPart ?? 1}/2…
                     </span>
                   )}
                 </div>
