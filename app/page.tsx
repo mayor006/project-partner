@@ -81,12 +81,12 @@ export default function LandingPage() {
 
       {/* ── Hero — split: copy left, characters right (desktop) ── */}
       <section className="relative z-10 w-full">
-        <div className="mx-auto grid max-w-6xl items-center gap-10 lg:gap-16 lg:grid-cols-[1.1fr_1fr] px-5 sm:px-8 pt-10 sm:pt-16 pb-16 lg:pb-24">
+        <div className="mx-auto grid max-w-6xl items-center gap-8 sm:gap-10 lg:gap-16 lg:grid-cols-[1.1fr_1fr] px-5 sm:px-8 pt-8 sm:pt-12 lg:pt-16 pb-14 sm:pb-16 lg:pb-24">
 
           {/* Copy */}
-          <div>
+          <div className="min-w-0">
             <div
-              className="anim-entrance inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-medium mb-7"
+              className="anim-entrance inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] sm:text-xs font-medium mb-6 sm:mb-7 max-w-full"
               style={{
                 background: 'rgba(255,255,255,0.04)',
                 borderColor: 'rgba(255,255,255,0.1)',
@@ -94,14 +94,14 @@ export default function LandingPage() {
               }}
             >
               <span
-                className="h-1.5 w-1.5 rounded-full"
+                className="h-1.5 w-1.5 rounded-full flex-shrink-0"
                 style={{ background: '#fff', boxShadow: '0 0 6px #fff', animation: 'pulse 2s infinite' }}
               />
-              Built for Nigerian university students
+              <span className="truncate">Built for Nigerian university students</span>
             </div>
 
             <h1
-              className="anim-entrance stagger-1 text-4xl sm:text-5xl lg:text-[56px] font-bold leading-[1.05] tracking-tight"
+              className="anim-entrance stagger-1 text-[32px] leading-[1.08] sm:text-5xl lg:text-[56px] sm:leading-[1.05] font-bold tracking-tight"
               style={{ color: 'var(--foreground)' }}
             >
               Your AI{' '}
@@ -115,11 +115,13 @@ export default function LandingPage() {
               >
                 project supervisor
               </span>
-              <br />from topic to defense.
+              <br className="hidden sm:block" />
+              <span className="sm:hidden"> </span>
+              from topic to defense.
             </h1>
 
             <p
-              className="anim-entrance stagger-2 mt-6 text-base sm:text-lg leading-relaxed max-w-xl"
+              className="anim-entrance stagger-2 mt-5 sm:mt-6 text-sm sm:text-base lg:text-lg leading-relaxed max-w-xl"
               style={{ color: 'var(--foreground-muted)' }}
             >
               Project Partner guides you through the entire final-year project —
@@ -127,57 +129,57 @@ export default function LandingPage() {
               and defense preparation.
             </p>
 
-            <div className="anim-entrance stagger-3 mt-9 flex flex-col sm:flex-row gap-3">
+            <div className="anim-entrance stagger-3 mt-8 sm:mt-9 flex flex-col sm:flex-row gap-2.5 sm:gap-3">
               <Link
                 href="/signup"
-                className="btn-primary inline-flex items-center justify-center gap-2 rounded-xl px-7 py-3.5 text-[15px] font-semibold"
+                className="btn-primary inline-flex items-center justify-center gap-2 rounded-xl px-5 sm:px-7 py-3.5 text-sm sm:text-[15px] font-semibold w-full sm:w-auto"
               >
-                <Sparkles size={15} color="#fff" />
-                Start your project — Free
+                <Sparkles size={14} color="#fff" />
+                Start your project &mdash; Free
               </Link>
               <Link
                 href="/login"
-                className="btn-ghost rounded-xl px-7 py-3.5 text-[15px] font-semibold inline-flex items-center justify-center"
+                className="btn-ghost rounded-xl px-5 sm:px-7 py-3.5 text-sm sm:text-[15px] font-semibold inline-flex items-center justify-center w-full sm:w-auto"
               >
                 Sign in
               </Link>
             </div>
 
-            <div className="anim-entrance stagger-4 mt-7 flex flex-wrap gap-x-5 gap-y-2">
+            <div className="anim-entrance stagger-4 mt-6 sm:mt-7 flex flex-wrap gap-x-5 gap-y-2">
               {perks.map(p => (
-                <div key={p} className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--foreground-dim)' }}>
-                  <Check size={11} color="#fff" />
+                <div key={p} className="flex items-center gap-1.5 text-[11px] sm:text-xs" style={{ color: 'var(--foreground-dim)' }}>
+                  <Check size={10} color="#fff" className="flex-shrink-0" />
                   {p}
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Character stage */}
-          <div className="relative h-[320px] sm:h-[380px] lg:h-[460px] flex items-end justify-center anim-entrance stagger-2">
+          {/* Character stage — clipped, scales with screen size */}
+          <div className="relative h-[260px] sm:h-[340px] lg:h-[460px] anim-entrance stagger-2 rounded-[24px] lg:rounded-[28px] overflow-hidden"
+            style={{
+              background:
+                'linear-gradient(135deg, #6C3FF5 0%, #4A1FA8 55%, #1f0a4f 100%)',
+              boxShadow: '0 30px 80px -20px rgba(124,58,237,0.45)',
+            }}
+          >
+            {/* Grid pattern */}
             <div
-              className="absolute inset-0 rounded-[28px] overflow-hidden"
+              className="absolute inset-0"
               style={{
-                background:
-                  'linear-gradient(135deg, #6C3FF5 0%, #4A1FA8 55%, #1f0a4f 100%)',
-                boxShadow: '0 30px 80px -20px rgba(124,58,237,0.45)',
+                backgroundImage:
+                  'linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)',
+                backgroundSize: '24px 24px',
               }}
-            >
-              <div
-                className="absolute inset-0"
-                style={{
-                  backgroundImage:
-                    'linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)',
-                  backgroundSize: '24px 24px',
-                }}
-              />
-              <div className="absolute top-1/4 right-1/4 size-48 rounded-full blur-3xl" style={{ background: 'rgba(255,255,255,0.1)' }} />
-              <div className="absolute bottom-1/4 left-1/4 size-72 rounded-full blur-3xl" style={{ background: 'rgba(255,255,255,0.05)' }} />
-            </div>
+            />
+            <div className="absolute top-1/4 right-1/4 size-48 rounded-full blur-3xl" style={{ background: 'rgba(255,255,255,0.1)' }} />
+            <div className="absolute bottom-1/4 left-1/4 size-72 rounded-full blur-3xl" style={{ background: 'rgba(255,255,255,0.05)' }} />
 
-            {/* Scaled character scene */}
-            <div className="relative z-10 flex items-end justify-center pb-2 origin-bottom" style={{ transform: 'scale(0.78)' }}>
-              <AuthCharacters />
+            {/* Scaled character scene — scaled to fit each viewport */}
+            <div className="absolute inset-0 flex items-end justify-center pb-2">
+              <div className="origin-bottom scale-[0.5] sm:scale-[0.65] lg:scale-[0.85]">
+                <AuthCharacters />
+              </div>
             </div>
           </div>
         </div>
