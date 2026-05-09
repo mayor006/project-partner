@@ -7,6 +7,9 @@ import type { Project, Chapter, ProjectStageData, ProjectStructure, DefenseQA } 
 import { PromptInputBox } from '@/components/ui/ai-prompt-box'
 import { ChapterViewer } from '@/components/chapter-viewer'
 import {
+  Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
+} from '@/components/ui/select'
+import {
   Sparkles, BookOpen, FileText, MessageSquare, Shield,
   CheckCircle, RotateCcw, ArrowRight, Eye,
   Loader2, AlertCircle, Brain,
@@ -539,10 +542,19 @@ function Stage4Feedback({ project, chapters, advance }: { project: Project; chap
       {/* Chapter selector */}
       <div className="glass rounded-xl p-3 anim-entrance stagger-1">
         <p className="text-xs font-medium mb-2" style={{ color: 'var(--foreground-muted)' }}>Feedback applies to:</p>
-        <select value={selectedChapter} onChange={e => setSelectedChapter(e.target.value)} className="input-field text-xs py-2">
-          <option value="general">General / Whole Project</option>
-          {chapters.map(ch => <option key={ch.id} value={ch.id}>Chapter {ch.chapter_number}: {ch.title}</option>)}
-        </select>
+        <Select value={selectedChapter} onValueChange={setSelectedChapter}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="general">General / Whole Project</SelectItem>
+            {chapters.map(ch => (
+              <SelectItem key={ch.id} value={ch.id}>
+                Chapter {ch.chapter_number}: {ch.title}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Conversation thread */}

@@ -8,6 +8,9 @@ import {
   Brain, ArrowLeft, Sparkles, ArrowRight, Loader2, CheckCircle,
   AlertCircle, BookmarkPlus, ExternalLink, FileText,
 } from 'lucide-react'
+import {
+  Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
+} from '@/components/ui/select'
 
 const DEPARTMENTS = ['Accounting', 'Banking & Finance', 'Business Administration', 'Computer Science', 'Electrical Engineering', 'Economics', 'Education', 'English', 'Mass Communication', 'Medicine', 'Nursing', 'Political Science', 'Psychology', 'Public Administration', 'Sociology', 'Other']
 const LEVELS = ['300 Level', '400 Level', '500 Level', 'PGD', 'M.Sc', 'MBA', 'Ph.D']
@@ -170,10 +173,14 @@ export default function NewProjectPage() {
                 <label className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--foreground-muted)' }}>
                   Department *
                 </label>
-                <select value={department} onChange={e => setDepartment(e.target.value)} className="input-field">
-                  <option value="">Select your department</option>
-                  {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
-                </select>
+                <Select value={department} onValueChange={setDepartment}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select your department" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DEPARTMENTS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="flex flex-col gap-1.5">
@@ -189,10 +196,14 @@ export default function NewProjectPage() {
                 <label className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--foreground-muted)' }}>
                   Academic Level *
                 </label>
-                <select value={level} onChange={e => setLevel(e.target.value)} className="input-field">
-                  <option value="">Select your level</option>
-                  {LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
-                </select>
+                <Select value={level} onValueChange={setLevel}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select your level" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LEVELS.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="flex flex-col gap-1.5">

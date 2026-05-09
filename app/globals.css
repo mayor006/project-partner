@@ -371,6 +371,50 @@ body {
 }
 
 /* ─────────────────────────────────────────
+   Sheet / Dialog slide & fade (Radix data-state)
+───────────────────────────────────────── */
+@keyframes sheet-slide-in-left {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
+}
+@keyframes sheet-slide-out-left {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-100%); }
+}
+@keyframes sheet-slide-in-right {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+@keyframes sheet-slide-out-right {
+  from { transform: translateX(0); }
+  to   { transform: translateX(100%); }
+}
+@keyframes overlay-fade-in  { from { opacity: 0 } to { opacity: 1 } }
+@keyframes overlay-fade-out { from { opacity: 1 } to { opacity: 0 } }
+
+/* Radix Dialog overlay carries data-state */
+[role='dialog'] + *,
+div[data-state='open'][data-side]  { /* matched by Sheet content with our custom data-side */ }
+
+[data-side='left'][data-state='open']    { animation: sheet-slide-in-left  0.28s var(--ease-out) both; }
+[data-side='left'][data-state='closed']  { animation: sheet-slide-out-left 0.22s var(--ease-out) both; }
+[data-side='right'][data-state='open']   { animation: sheet-slide-in-right  0.28s var(--ease-out) both; }
+[data-side='right'][data-state='closed'] { animation: sheet-slide-out-right 0.22s var(--ease-out) both; }
+
+/* Overlay fade — Radix puts data-state on the overlay element */
+[data-radix-dialog-overlay-mounted][data-state='open']  { animation: overlay-fade-in 0.2s ease both; }
+[data-radix-dialog-overlay-mounted][data-state='closed'] { animation: overlay-fade-out 0.2s ease both; }
+
+/* Radix Select content fade+scale */
+@keyframes select-content-show {
+  from { opacity: 0; transform: scale(0.96) translateY(-4px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+[data-radix-select-content][data-state='open'] {
+  animation: select-content-show 0.18s var(--ease-out) both;
+}
+
+/* ─────────────────────────────────────────
    Reduced motion
 ───────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
