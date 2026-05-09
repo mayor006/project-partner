@@ -297,14 +297,28 @@ function Stage3Chapters({ project, chapters: initialChapters, advance }: { proje
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ projectId: project.id, title: project.title, department: project.department, level: project.level, chapterNumber: chapterNum, chapterTitle: chapterTitles[chapterNum - 1] }),
       })
+
+      // Handle non-JSON responses (e.g. Vercel timeout HTML page, gateway errors)
+      const contentType = res.headers.get('content-type') ?? ''
+      if (!contentType.includes('application/json')) {
+        if (res.status === 504) {
+          throw new Error('Chapter generation took too long and timed out. Please try again — sometimes the model is faster on retry.')
+        }
+        throw new Error(`Server returned ${res.status}. Please try again.`)
+      }
+
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
+      if (!res.ok) throw new Error(data.error || `Server error (${res.status})`)
+      if (!data.content) throw new Error('Empty response from AI. Please retry.')
+
       const supabase = createClient()
       const wordCount = data.content.split(/\s+/).length
-      const { data: saved } = await supabase.from('pp_chapters').upsert({
+      const { data: saved, error: dbError } = await supabase.from('pp_chapters').upsert({
         project_id: project.id, chapter_number: chapterNum, title: chapterTitles[chapterNum - 1],
         content: data.content, word_count: wordCount, status: 'completed',
       }, { onConflict: 'project_id,chapter_number' }).select().single()
+
+      if (dbError) throw new Error(`Save failed: ${dbError.message}`)
       if (saved) setChapters(prev => [...prev.filter(c => c.chapter_number !== chapterNum), saved as Chapter].sort((a, b) => a.chapter_number - b.chapter_number))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to write chapter')
