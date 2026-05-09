@@ -1,11 +1,19 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { NextResponse } from 'next/server'
 
+export const maxDuration = 30
+
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 export async function POST(request: Request) {
   try {
-    const { title, department, field, level } = await request.json()
+    const { title, department, field, level, lecturerToc, lecturerNotes, interests } = await request.json()
+
+    const lecturerBlock = (lecturerToc || lecturerNotes)
+      ? `\n\nSUPERVISOR'S INSTRUCTIONS — follow these strictly. Where they specify a structure, use it verbatim instead of inventing one:${lecturerToc ? `\n\nSupervisor's Table of Contents:\n${lecturerToc}` : ''}${lecturerNotes ? `\n\nSupervisor's Notes:\n${lecturerNotes}` : ''}`
+      : ''
+
+    const interestsBlock = interests ? `\nStudent's research interests: ${interests}` : ''
 
     const message = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',
@@ -17,9 +25,9 @@ export async function POST(request: Request) {
 Project Title: "${title}"
 Department: ${department}
 Field: ${field || 'General'}
-Level: ${level}
+Level: ${level}${interestsBlock}${lecturerBlock}
 
-Create a 5-chapter structure following Nigerian university academic standards.
+Create a 5-chapter structure following Nigerian university academic standards (or the supervisor's structure if provided above).
 
 Return ONLY valid JSON with this exact structure:
 {

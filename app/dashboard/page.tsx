@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { formatDate, getProgressPercent, STAGES } from '@/lib/utils'
 import type { Project } from '@/types'
-import { Brain, Plus, LogOut, FolderOpen, ChevronRight, Sparkles } from 'lucide-react'
+import { Brain, Plus, LogOut, FolderOpen, ChevronRight, Sparkles, Bookmark } from 'lucide-react'
 
 async function getProjects(userId: string) {
   const supabase = await createClient()
@@ -73,6 +73,16 @@ export default async function DashboardPage() {
             <FolderOpen size={14} color="#fff" />
             Dashboard
           </div>
+
+          {/* Saved Topics link */}
+          <Link
+            href="/saved-topics"
+            className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl mb-1 text-sm font-medium transition-colors hover:bg-white/5"
+            style={{ color: 'var(--foreground-muted)' }}
+          >
+            <Bookmark size={14} color="#fff" />
+            Saved Topics
+          </Link>
 
           {/* Projects */}
           {projects.length > 0 && (

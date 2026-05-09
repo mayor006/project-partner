@@ -88,7 +88,13 @@ Target ~1,500-1,800 words. Start directly with "5.5 Contributions to Knowledge".
 
 export async function POST(request: Request) {
   try {
-    const { title, department, field, level, chapterNumber, chapterTitle, part } = await request.json()
+    const {
+      title, department, field, level,
+      chapterNumber, chapterTitle, part,
+      // NEW context fields
+      lecturerToc, lecturerNotes, interests,
+      includeTables, // boolean — only generate tables/charts when explicitly requested
+    } = await request.json()
 
     const partNum = (part === 2 ? 2 : 1) as 1 | 2
     const promptKey = `${chapterNumber}-${partNum}`
@@ -101,15 +107,35 @@ export async function POST(request: Request) {
       )
     }
 
+    // ── Tables/charts policy ────────────────────────────────
+    // Stage 4 (chapter 4) inherently presents data — always allow tables there.
+    // For all other chapters, only include tables if the student asked for them.
+    const tablesAllowed = chapterNumber === 4 || includeTables === true
+    const tablePolicy = tablesAllowed
+      ? 'Tables: include clean markdown tables ONLY where the section list above explicitly calls for tables (e.g. demographics, frequency tables). Do not invent gratuitous tables.'
+      : 'Tables and charts: DO NOT include any tables, charts, or markdown table syntax in this chapter. Use prose only.'
+
+    // ── Lecturer context ────────────────────────────────────
+    const lecturerBlock = (lecturerToc || lecturerNotes)
+      ? `
+SUPERVISOR'S INSTRUCTIONS (follow these strictly — they OVERRIDE the default section list above where they conflict):
+${lecturerToc ? `\nSupervisor's Table of Contents:\n${lecturerToc}\n` : ''}${lecturerNotes ? `\nSupervisor's Notes:\n${lecturerNotes}\n` : ''}
+`.trim()
+      : ''
+
+    const interestsBlock = interests
+      ? `\nStudent research interests: ${interests}\n`
+      : ''
+
     const STYLE_RULES = `
 WRITING STYLE — STRICT RULES:
-1. Format headings as plain numbered text on their own lines, e.g. "1.1 Background to the Study". Do NOT use markdown symbols (no #, ##, ###, **, *). The chapter title at the top is the only exception (e.g. "CHAPTER ONE: INTRODUCTION" on its own line).
-2. Avoid em dashes (—). Use commas, semicolons, colons, parentheses, or periods instead.
-3. Use plain numbered lists (1. 2. 3.) or bullet hyphens (- ) where lists are needed.
-4. Write in formal Nigerian academic English. Use full words, not contractions.
-5. Use proper paragraph breaks (one blank line between paragraphs).
-6. For tables, use clean markdown tables only where Section 4 specifically calls for them.
-7. Do not add meta-commentary, prefaces, or "in this chapter we will..." filler. Get straight to the content.
+1. Headings: plain numbered text on their own lines, e.g. "1.1 Background to the Study". Do NOT use markdown symbols (no #, ##, ###, **, *). The chapter title at the very top is the only exception (e.g. "CHAPTER ONE: INTRODUCTION" on its own line).
+2. Avoid em dashes (—). Use commas, semicolons, colons, parentheses, or periods.
+3. Lists: plain numbered (1. 2. 3.) or hyphen bullets (- ) only.
+4. Formal Nigerian academic English. No contractions.
+5. Proper paragraph breaks (one blank line between paragraphs).
+6. ${tablePolicy}
+7. No meta-commentary, no preface, no "in this chapter we will…" filler. Begin with content.
 `.trim()
 
     const message = await anthropic.messages.create({
@@ -122,10 +148,11 @@ WRITING STYLE — STRICT RULES:
 Project: "${title}"
 Department: ${department}
 Field: ${field || 'General'}
-Level: ${level}
+Level: ${level}${interestsBlock}
 Writing: Chapter ${chapterNumber} (${chapterTitle}) — PART ${partNum} of 2
 
 ${chapterPrompt}
+${lecturerBlock ? '\n' + lecturerBlock : ''}
 
 ${STYLE_RULES}`,
       }],

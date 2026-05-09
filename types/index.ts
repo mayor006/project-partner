@@ -19,6 +19,10 @@ export interface Project {
   stage_name: StageName
   topic?: string
   abstract?: string
+  // Phase 1 additions
+  lecturer_toc?: string | null
+  lecturer_notes?: string | null
+  interests?: string | null
   created_at: string
   updated_at: string
 }

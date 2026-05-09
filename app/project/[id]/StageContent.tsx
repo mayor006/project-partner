@@ -196,7 +196,15 @@ function Stage2Structure({ project, advance }: { project: Project; advance: () =
       const res = await fetch('/api/ai/structure', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: project.title, department: project.department, field: project.field, level: project.level }),
+        body: JSON.stringify({
+          title: project.title,
+          department: project.department,
+          field: project.field,
+          level: project.level,
+          lecturerToc: project.lecturer_toc,
+          lecturerNotes: project.lecturer_notes,
+          interests: project.interests,
+        }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
@@ -286,6 +294,7 @@ function Stage3Chapters({ project, chapters: initialChapters, advance }: { proje
   const [writing, setWriting] = useState<number | null>(null)
   const [writingPart, setWritingPart] = useState<1 | 2 | null>(null)
   const [viewing, setViewing] = useState<Chapter | null>(null)
+  const [includeTables, setIncludeTables] = useState<Record<number, boolean>>({})
   const [error, setError] = useState('')
   const router = useRouter()
 
@@ -299,10 +308,17 @@ function Stage3Chapters({ project, chapters: initialChapters, advance }: { proje
         projectId: project.id,
         title: project.title,
         department: project.department,
+        field: project.field,
         level: project.level,
         chapterNumber: chapterNum,
         chapterTitle: chapterTitles[chapterNum - 1],
         part,
+        // Lecturer context — applied to every chapter call
+        lecturerToc: project.lecturer_toc,
+        lecturerNotes: project.lecturer_notes,
+        interests: project.interests,
+        // Tables only when student explicitly asks (Ch 4 always allows)
+        includeTables: !!includeTables[chapterNum],
       }),
     })
 
@@ -415,6 +431,21 @@ function Stage3Chapters({ project, chapters: initialChapters, advance }: { proje
                       <Eye size={12} color="#fff" />
                       View
                     </button>
+                  )}
+                  {!isDone && !isWriting && chNum !== 4 && (
+                    <label
+                      className="flex items-center gap-1.5 text-[10px] px-2 py-1 rounded-lg cursor-pointer transition-colors hover:bg-white/5"
+                      style={{ color: 'var(--foreground-dim)' }}
+                      title="Tell AI to include tables/charts in this chapter"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={!!includeTables[chNum]}
+                        onChange={e => setIncludeTables(prev => ({ ...prev, [chNum]: e.target.checked }))}
+                        className="accent-white w-3 h-3"
+                      />
+                      Tables
+                    </label>
                   )}
                   {!isDone && !isWriting && (
                     <button onClick={() => writeChapter(chNum)} disabled={writing !== null}
