@@ -72,8 +72,9 @@ export function AppShell({ sidebar, children, mobileTitle }: AppShellProps) {
           </div>
         </header>
 
-        {/* Scroll container */}
-        <main className="flex-1 overflow-y-auto relative">
+        {/* Scroll container — overflow-x-hidden clips ambient blobs that
+            sit slightly past the viewport edge for visual depth. */}
+        <main className="flex-1 overflow-y-auto overflow-x-hidden relative">
           {children}
         </main>
       </div>
