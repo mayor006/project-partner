@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Brain, Eye, EyeOff, Loader2, AlertCircle, ArrowLeft, Mail, RotateCcw } from 'lucide-react'
+import { Brain, Eye, EyeOff, Loader2, AlertCircle, ArrowLeft, Mail, RotateCcw, ExternalLink, Send } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -32,19 +32,60 @@ export default function SignupPage() {
     setError('')
     setLoading(true)
     const supabase = createClient()
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: fullName } },
+      options: {
+        data: { full_name: fullName },
+        emailRedirectTo: `${window.location.origin}/api/auth/callback`,
+      },
+    })
+
+    if (error) {
+      // Friendly error mapping
+      const msg = error.message
+      if (/already registered|already been registered|already exists/i.test(msg)) {
+        setError('That email is already registered. Try signing in instead.')
+      } else if (/rate limit|too many/i.test(msg)) {
+        setError('Too many requests. Please wait a few minutes before trying again.')
+      } else {
+        setError(msg)
+      }
+      setLoading(false)
+      return
+    }
+
+    // Detect "already registered, unconfirmed" — Supabase returns user with empty identities
+    if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+      setError('That email is already in use. If you signed up but never verified, try resending below.')
+      setStep('otp')
+      setLoading(false)
+      return
+    }
+
+    setInfo(`We sent a verification email to ${email}.`)
+    setStep('otp')
+    setLoading(false)
+  }
+
+  async function sendMagicLinkInstead() {
+    setError('')
+    setInfo('')
+    setResending(true)
+    const supabase = createClient()
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        shouldCreateUser: false,
+        emailRedirectTo: `${window.location.origin}/api/auth/callback`,
+      },
     })
     if (error) {
       setError(error.message)
-      setLoading(false)
     } else {
-      setInfo(`We sent a 6-digit verification code to ${email}.`)
-      setStep('otp')
-      setLoading(false)
+      setInfo(`Sign-in link sent to ${email}. Check your inbox and click it to log in.`)
     }
+    setResending(false)
   }
 
   async function handleVerifyOtp(code: string) {
@@ -247,15 +288,18 @@ export default function SignupPage() {
                 </div>
               </div>
 
-              <div className="text-center mb-8">
+              <div className="text-center mb-7">
                 <h1 className="text-2xl font-bold mb-2">Check your email</h1>
                 <p className="text-sm leading-relaxed" style={{ color: 'var(--foreground-muted)' }}>
-                  We sent a 6-digit code to{' '}
+                  We sent a verification email to{' '}
                   <span className="text-white font-medium">{email}</span>
+                </p>
+                <p className="text-xs mt-3 leading-relaxed" style={{ color: 'var(--foreground-dim)' }}>
+                  Enter the 6-digit code below, <span className="text-white">or</span> click the link in the email to confirm.
                 </p>
               </div>
 
-              <div className="mb-6">
+              <div className="mb-5">
                 <OtpInput
                   value={otp}
                   onChange={setOtp}
@@ -266,10 +310,11 @@ export default function SignupPage() {
 
               {info && !error && (
                 <div
-                  className="text-center text-xs mb-4 anim-entrance-sm"
-                  style={{ color: 'var(--foreground-muted)' }}
+                  className="flex items-start gap-2 px-3.5 py-3 mb-4 rounded-xl text-xs anim-entrance-sm"
+                  style={{ background: 'rgba(255,255,255,0.04)', color: 'var(--foreground-muted)', border: '1px solid var(--border)' }}
                 >
-                  {info}
+                  <Mail size={13} className="flex-shrink-0 mt-0.5" color="#fff" />
+                  <span className="flex-1">{info}</span>
                 </div>
               )}
 
@@ -286,7 +331,7 @@ export default function SignupPage() {
                 disabled={otp.length !== 6 || loading}
                 variant="primary"
                 size="lg"
-                className="w-full"
+                className="w-full mb-3"
               >
                 {loading ? (
                   <><Loader2 size={14} className="animate-spin" /> Verifying…</>
@@ -295,8 +340,24 @@ export default function SignupPage() {
                 )}
               </Button>
 
+              {/* Fallback: send magic link instead */}
+              <Button
+                onClick={sendMagicLinkInstead}
+                disabled={resending}
+                variant="outline"
+                size="lg"
+                className="w-full"
+                type="button"
+              >
+                {resending ? (
+                  <><Loader2 size={13} className="animate-spin" /> Sending…</>
+                ) : (
+                  <><Send size={13} color="#fff" /> Email me a sign-in link instead</>
+                )}
+              </Button>
+
               <div className="text-center mt-6 flex items-center justify-center gap-2">
-                <span className="text-xs" style={{ color: 'var(--foreground-muted)' }}>Didn&apos;t get a code?</span>
+                <span className="text-xs" style={{ color: 'var(--foreground-muted)' }}>Didn&apos;t get the email?</span>
                 <button
                   onClick={resendOtp}
                   disabled={resending}
@@ -307,6 +368,10 @@ export default function SignupPage() {
                   Resend
                 </button>
               </div>
+
+              <p className="text-center text-[11px] mt-5" style={{ color: 'var(--foreground-dim)' }}>
+                Check your spam/junk folder if it&apos;s not in your inbox.
+              </p>
             </div>
           )}
         </div>

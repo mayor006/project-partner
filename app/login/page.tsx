@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Brain, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -13,12 +13,19 @@ import { AuthCharacters } from '@/components/auth/auth-characters'
 
 export default function LoginPage() {
   const router = useRouter()
+  const params = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [isTyping, setIsTyping] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // Surface errors redirected here from /api/auth/callback
+  useEffect(() => {
+    const e = params.get('error')
+    if (e) setError(e)
+  }, [params])
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
