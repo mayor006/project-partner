@@ -76,8 +76,8 @@ export default function NewProjectPage() {
       >
         <Link href="/dashboard" className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-xl flex items-center justify-center"
-            style={{ background: 'linear-gradient(135deg, #7c3aed, #a855f7)' }}>
-            <Brain size={14} className="text-white" />
+            style={{ background: '#fff' }}>
+            <Brain size={14} color="#000" strokeWidth={2.2} />
           </div>
           <span className="font-semibold text-sm">Project Partner</span>
         </Link>
@@ -187,11 +187,11 @@ export default function NewProjectPage() {
           <div className="flex flex-col items-center justify-center py-28 text-center anim-scale">
             <div className="relative mb-6">
               <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
-                style={{ background: 'linear-gradient(135deg, #7c3aed, #a855f7)' }}>
-                <Sparkles size={24} className="text-white" />
+                style={{ background: '#fff' }}>
+                <Sparkles size={24} color="#000" strokeWidth={1.8} />
               </div>
               <div className="absolute inset-0 rounded-2xl animate-ping opacity-20"
-                style={{ background: 'var(--accent)', animationDuration: '1.5s' }} />
+                style={{ background: '#fff', animationDuration: '1.5s' }} />
             </div>
             <h2 className="text-lg font-semibold mb-2">Finding your topics…</h2>
             <p className="text-sm" style={{ color: 'var(--foreground-muted)' }}>

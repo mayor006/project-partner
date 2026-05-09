@@ -23,9 +23,9 @@ function AIMessage({ children, delay = 0 }: { children: React.ReactNode; delay?:
     <div className="flex gap-3 anim-entrance" style={{ animationDelay: `${delay}s` }}>
       <div
         className="flex-shrink-0 w-7 h-7 rounded-xl flex items-center justify-center mt-0.5"
-        style={{ background: 'linear-gradient(135deg, #7c3aed, #a855f7)' }}
+        style={{ background: '#fff' }}
       >
-        <Brain size={12} className="text-white" />
+        <Brain size={12} color="#000" strokeWidth={2.2} />
       </div>
       <div className="flex-1 msg-ai rounded-2xl p-4 text-sm leading-relaxed">
         {children}
@@ -54,9 +54,9 @@ function Thinking({ label = 'Thinking' }: { label?: string }) {
     <div className="flex gap-3 anim-fade">
       <div
         className="flex-shrink-0 w-7 h-7 rounded-xl flex items-center justify-center mt-0.5"
-        style={{ background: 'linear-gradient(135deg, #7c3aed, #a855f7)' }}
+        style={{ background: '#fff' }}
       >
-        <Brain size={12} className="text-white" />
+        <Brain size={12} color="#000" strokeWidth={2.2} />
       </div>
       <div className="msg-ai rounded-2xl px-4 py-3 flex items-center gap-2.5">
         <span className="text-xs" style={{ color: 'var(--foreground-muted)' }}>{label}</span>
@@ -72,21 +72,21 @@ function Thinking({ label = 'Thinking' }: { label?: string }) {
 
 /* ─── Stage Header ───────────────────────── */
 function StageHeader({
-  icon: Icon, label, subtitle, iconColor, iconBg,
+  icon: Icon, label, subtitle,
 }: {
   icon: React.ElementType
   label: string
   subtitle: string
-  iconColor: string
-  iconBg: string
+  iconColor?: string
+  iconBg?: string
 }) {
   return (
     <div className="flex items-center gap-3 mb-6 anim-entrance">
       <div
         className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-        style={{ background: iconBg }}
+        style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)' }}
       >
-        <Icon size={17} style={{ color: iconColor }} />
+        <Icon size={17} color="#fff" strokeWidth={1.8} />
       </div>
       <div>
         <h2 className="font-semibold text-base">{label}</h2>
@@ -325,7 +325,7 @@ function Stage3Chapters({ project, chapters: initialChapters, advance }: { proje
         <p style={{ color: 'var(--foreground-muted)' }}>Write them one at a time. Each takes about 45–60 seconds.</p>
         {totalWords > 0 && (
           <div className="mt-3">
-            <span className="px-2.5 py-1 rounded-lg text-xs font-medium" style={{ background: 'var(--success-subtle)', color: 'var(--success)' }}>
+            <span className="px-2.5 py-1 rounded-lg text-xs font-medium" style={{ background: 'rgba(255,255,255,0.1)', color: '#fff' }}>
               {totalWords.toLocaleString()} words written
             </span>
           </div>
@@ -347,10 +347,10 @@ function Stage3Chapters({ project, chapters: initialChapters, advance }: { proje
               <div className="flex items-center justify-between p-4">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold flex-shrink-0"
-                    style={isDone ? { background: 'var(--success-subtle)', color: 'var(--success)' }
-                      : isWriting ? { background: 'var(--accent-subtle)', color: 'var(--accent-light)' }
-                      : { background: 'rgba(255,255,255,0.05)', color: 'var(--foreground-dim)' }}>
-                    {isDone ? <CheckCircle size={14} /> : isWriting ? <Loader2 size={14} className="animate-spin" /> : chNum}
+                    style={isDone ? { background: '#fff', color: '#000' }
+                      : isWriting ? { background: 'rgba(255,255,255,0.12)', color: '#fff' }
+                      : { background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.4)' }}>
+                    {isDone ? <CheckCircle size={14} color="#000" /> : isWriting ? <Loader2 size={14} className="animate-spin" color="#fff" /> : chNum}
                   </div>
                   <div>
                     <p className="text-sm font-medium">Chapter {chNum}</p>
@@ -374,8 +374,8 @@ function Stage3Chapters({ project, chapters: initialChapters, advance }: { proje
                     </button>
                   )}
                   {isWriting && (
-                    <span className="text-xs flex items-center gap-1.5" style={{ color: 'var(--accent-light)' }}>
-                      <Loader2 size={11} className="animate-spin" /> Writing…
+                    <span className="text-xs flex items-center gap-1.5" style={{ color: '#fff' }}>
+                      <Loader2 size={11} className="animate-spin" color="#fff" /> Writing…
                     </span>
                   )}
                 </div>
@@ -396,7 +396,7 @@ function Stage3Chapters({ project, chapters: initialChapters, advance }: { proje
         <div className="anim-entrance stagger-3">
           <AIMessage>
             <p className="font-medium mb-1 flex items-center gap-2">
-              <CheckCircle size={14} style={{ color: 'var(--success)' }} />
+              <CheckCircle size={14} color="#fff" />
               All {chapterTitles.length} chapters written!
             </p>
             <p style={{ color: 'var(--foreground-muted)' }}>
@@ -469,7 +469,7 @@ function Stage4Feedback({ project, chapters, advance }: { project: Project; chap
         <div key={i} className="flex flex-col gap-3 anim-entrance">
           <UserMessage>{item.feedback}</UserMessage>
           <AIMessage>
-            <p className="font-medium text-xs mb-2" style={{ color: '#22c55e' }}>Revision Plan</p>
+            <p className="font-medium text-xs mb-2" style={{ color: '#fff' }}>Revision Plan</p>
             <div className="text-sm leading-relaxed whitespace-pre-wrap">{item.response}</div>
           </AIMessage>
         </div>
@@ -515,11 +515,11 @@ function Stage5Defense({ project, stages }: { project: Project; stages: ProjectS
   const displayQs = questions.length > 0 ? questions : savedQs
 
   const catStyle: Record<string, { text: string; bg: string }> = {
-    methodology:  { text: '#3b82f6', bg: 'rgba(59,130,246,0.1)' },
-    literature:   { text: '#8b5cf6', bg: 'rgba(139,92,246,0.1)' },
-    findings:     { text: '#22c55e', bg: 'rgba(34,197,94,0.1)' },
-    contribution: { text: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
-    general:      { text: '#94a3b8', bg: 'rgba(148,163,184,0.1)' },
+    methodology:  { text: '#fff', bg: 'rgba(255,255,255,0.1)' },
+    literature:   { text: '#fff', bg: 'rgba(255,255,255,0.1)' },
+    findings:     { text: '#fff', bg: 'rgba(255,255,255,0.1)' },
+    contribution: { text: '#fff', bg: 'rgba(255,255,255,0.1)' },
+    general:      { text: '#fff', bg: 'rgba(255,255,255,0.1)' },
   }
 
   async function generate() {
@@ -595,9 +595,9 @@ function Stage5Defense({ project, stages }: { project: Project; stages: ProjectS
           </button>
           {project.stage >= 6 && (
             <div className="glass p-6 rounded-2xl text-center anim-entrance stagger-4"
-              style={{ border: '1px solid rgba(34,197,94,0.25)', background: 'rgba(34,197,94,0.06)' }}>
+              style={{ border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.04)' }}>
               <p className="text-2xl mb-2">🎉</p>
-              <p className="font-bold text-base mb-1" style={{ color: 'var(--success)' }}>Project Complete!</p>
+              <p className="font-bold text-base mb-1" style={{ color: '#fff' }}>Project Complete!</p>
               <p className="text-sm" style={{ color: 'var(--foreground-muted)' }}>
                 You&apos;ve gone from topic to defense prep. Time to submit and present. Good luck!
               </p>

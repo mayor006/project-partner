@@ -53,9 +53,9 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           <div className="flex items-center gap-2.5 mb-3">
             <div
               className="w-7 h-7 rounded-lg flex items-center justify-center"
-              style={{ background: 'linear-gradient(135deg, #7c3aed, #a855f7)' }}
+              style={{ background: '#fff' }}
             >
-              <Brain size={12} className="text-white" />
+              <Brain size={12} color="#000" strokeWidth={2.2} />
             </div>
             <span className="font-semibold text-sm">Project Partner</span>
           </div>
@@ -116,23 +116,23 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
                   className="stage-pill"
                   style={{
                     background: isDone
-                      ? 'var(--success-subtle)'
+                      ? 'rgba(255,255,255,0.08)'
                       : isCurrent
-                      ? 'var(--accent-subtle)'
+                      ? 'rgba(255,255,255,0.12)'
                       : 'transparent',
                     color: isDone
-                      ? 'var(--success)'
+                      ? '#fff'
                       : isCurrent
-                      ? 'var(--accent-light)'
-                      : 'var(--foreground-dim)',
+                      ? '#fff'
+                      : 'rgba(255,255,255,0.35)',
                   }}
                 >
                   {isDone ? (
-                    <CheckCircle size={13} />
+                    <CheckCircle size={13} color="#fff" />
                   ) : isCurrent ? (
-                    <Loader size={13} className="animate-spin" />
+                    <Loader size={13} className="animate-spin" color="#fff" />
                   ) : (
-                    <Circle size={13} />
+                    <Circle size={13} color="rgba(255,255,255,0.35)" />
                   )}
                   <span className="text-[12px] font-medium">{stage.label}</span>
                 </div>

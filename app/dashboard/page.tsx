@@ -16,12 +16,12 @@ async function getProjects(userId: string) {
 }
 
 const stageColors: Record<number, { bg: string; text: string; label: string }> = {
-  1: { bg: 'rgba(245,158,11,0.12)', text: '#f59e0b', label: 'Topic Discovery' },
-  2: { bg: 'rgba(59,130,246,0.12)',  text: '#3b82f6', label: 'Structure' },
-  3: { bg: 'rgba(124,58,237,0.12)', text: '#a78bfa', label: 'Chapter Writing' },
-  4: { bg: 'rgba(249,115,22,0.12)', text: '#f97316', label: 'Feedback Loop' },
-  5: { bg: 'rgba(34,197,94,0.12)',  text: '#22c55e', label: 'Defense Prep' },
-  6: { bg: 'rgba(34,197,94,0.12)',  text: '#22c55e', label: 'Complete ✓' },
+  1: { bg: 'rgba(255,255,255,0.06)', text: '#fff', label: 'Topic Discovery' },
+  2: { bg: 'rgba(255,255,255,0.06)', text: '#fff', label: 'Structure' },
+  3: { bg: 'rgba(255,255,255,0.06)', text: '#fff', label: 'Chapter Writing' },
+  4: { bg: 'rgba(255,255,255,0.06)', text: '#fff', label: 'Feedback Loop' },
+  5: { bg: 'rgba(255,255,255,0.06)', text: '#fff', label: 'Defense Prep' },
+  6: { bg: 'rgba(255,255,255,0.12)', text: '#fff', label: 'Complete ✓' },
 }
 
 export default async function DashboardPage() {
@@ -52,9 +52,9 @@ export default async function DashboardPage() {
           <div className="flex items-center gap-2.5">
             <div
               className="w-8 h-8 rounded-xl flex items-center justify-center"
-              style={{ background: 'linear-gradient(135deg, #7c3aed, #a855f7)' }}
+              style={{ background: '#fff' }}
             >
-              <Brain size={14} className="text-white" />
+              <Brain size={14} color="#000" strokeWidth={2.2} />
             </div>
             <span className="font-semibold text-sm tracking-tight">Project Partner</span>
           </div>
@@ -66,11 +66,11 @@ export default async function DashboardPage() {
           <div
             className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl mb-1 text-sm font-medium"
             style={{
-              background: 'var(--accent-subtle)',
-              color: 'var(--accent-light)',
+              background: 'rgba(255,255,255,0.08)',
+              color: '#fff',
             }}
           >
-            <FolderOpen size={14} />
+            <FolderOpen size={14} color="#fff" />
             Dashboard
           </div>
 
@@ -90,7 +90,7 @@ export default async function DashboardPage() {
                   >
                     <div
                       className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                      style={{ background: p.stage >= 6 ? 'var(--success)' : 'var(--accent)' }}
+                      style={{ background: p.stage >= 6 ? '#fff' : 'rgba(255,255,255,0.5)' }}
                     />
                     <span className="truncate flex-1">{p.title}</span>
                     <ChevronRight size={10} className="opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -106,7 +106,7 @@ export default async function DashboardPage() {
           <div className="flex items-center gap-2.5 mb-3 px-2">
             <div
               className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0"
-              style={{ background: 'var(--accent-subtle)', color: 'var(--accent-light)' }}
+              style={{ background: '#fff', color: '#000' }}
             >
               {name[0]?.toUpperCase()}
             </div>
@@ -171,9 +171,9 @@ export default async function DashboardPage() {
             >
               <div
                 className="w-14 h-14 rounded-2xl flex items-center justify-center mb-5"
-                style={{ background: 'var(--accent-subtle)', border: '1px solid rgba(124,58,237,0.2)' }}
+                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
               >
-                <Sparkles size={22} style={{ color: 'var(--accent-light)' }} />
+                <Sparkles size={22} color="#fff" strokeWidth={1.6} />
               </div>
               <h3 className="text-lg font-semibold mb-2">No projects yet</h3>
               <p className="text-sm mb-7 max-w-xs" style={{ color: 'var(--foreground-muted)' }}>

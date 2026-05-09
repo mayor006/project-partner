@@ -51,10 +51,10 @@ export default function LoginPage() {
           <div className="flex flex-col items-center mb-8">
             <Link href="/" className="mb-5">
               <div
-                className="w-12 h-12 rounded-2xl flex items-center justify-center glow-accent-sm"
-                style={{ background: 'linear-gradient(135deg, #7c3aed, #a855f7)' }}
+                className="w-12 h-12 rounded-2xl flex items-center justify-center"
+                style={{ background: '#fff' }}
               >
-                <Brain size={20} className="text-white" />
+                <Brain size={20} color="#000" strokeWidth={2.2} />
               </div>
             </Link>
             <h1 className="text-xl font-bold mb-1">Welcome back</h1>
