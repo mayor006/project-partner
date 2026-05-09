@@ -5,9 +5,10 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { Project, Chapter, ProjectStageData, ProjectStructure, DefenseQA } from '@/types'
 import { PromptInputBox } from '@/components/ui/ai-prompt-box'
+import { ChapterViewer } from '@/components/chapter-viewer'
 import {
   Sparkles, BookOpen, FileText, MessageSquare, Shield,
-  CheckCircle, ChevronDown, ChevronUp, RotateCcw, ArrowRight,
+  CheckCircle, RotateCcw, ArrowRight, Eye,
   Loader2, AlertCircle, Brain,
 } from 'lucide-react'
 
@@ -284,7 +285,7 @@ function Stage3Chapters({ project, chapters: initialChapters, advance }: { proje
   const [chapters, setChapters] = useState<Chapter[]>(initialChapters)
   const [writing, setWriting] = useState<number | null>(null)
   const [writingPart, setWritingPart] = useState<1 | 2 | null>(null)
-  const [expanded, setExpanded] = useState<number | null>(null)
+  const [viewing, setViewing] = useState<Chapter | null>(null)
   const [error, setError] = useState('')
   const router = useRouter()
 
@@ -386,7 +387,6 @@ function Stage3Chapters({ project, chapters: initialChapters, advance }: { proje
           const chapter = chapters.find(c => c.chapter_number === chNum)
           const isDone = chapter?.status === 'completed'
           const isWriting = writing === chNum
-          const isExpanded = expanded === chNum
 
           return (
             <div key={chNum} className="glass rounded-2xl overflow-hidden anim-entrance" style={{ animationDelay: `${i * 0.06}s` }}>
@@ -401,22 +401,25 @@ function Stage3Chapters({ project, chapters: initialChapters, advance }: { proje
                   <div>
                     <p className="text-sm font-medium">Chapter {chNum}</p>
                     <p className="text-[11px]" style={{ color: 'var(--foreground-muted)' }}>
-                      {title}{isDone && chapter && <span style={{ color: 'var(--success)' }}> · {chapter.word_count.toLocaleString()} words</span>}
+                      {title}{isDone && chapter && <span style={{ color: '#fff' }}> · {chapter.word_count.toLocaleString()} words</span>}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  {isDone && (
-                    <button onClick={() => setExpanded(isExpanded ? null : chNum)}
-                      className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg btn-ghost press">
-                      {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                      {isExpanded ? 'Hide' : 'Preview'}
+                  {isDone && chapter && (
+                    <button
+                      onClick={() => setViewing(chapter)}
+                      className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg btn-ghost press"
+                      title="Open chapter — copy or download"
+                    >
+                      <Eye size={12} color="#fff" />
+                      View
                     </button>
                   )}
                   {!isDone && !isWriting && (
                     <button onClick={() => writeChapter(chNum)} disabled={writing !== null}
                       className="btn-primary text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 press disabled:opacity-40">
-                      <Sparkles size={11} /> Write
+                      <Sparkles size={11} color="#fff" /> Write
                     </button>
                   )}
                   {isWriting && (
@@ -427,13 +430,6 @@ function Stage3Chapters({ project, chapters: initialChapters, advance }: { proje
                   )}
                 </div>
               </div>
-              {isExpanded && chapter?.content && (
-                <div className="border-t px-4 py-4 text-xs leading-relaxed whitespace-pre-wrap max-h-72 overflow-y-auto anim-entrance-sm"
-                  style={{ borderColor: 'var(--border)', color: 'var(--foreground-muted)' }}>
-                  {chapter.content.slice(0, 2000)}
-                  {chapter.content.length > 2000 && <span style={{ color: 'var(--foreground-dim)' }}>…[preview truncated]</span>}
-                </div>
-              )}
             </div>
           )
         })}
@@ -452,10 +448,17 @@ function Stage3Chapters({ project, chapters: initialChapters, advance }: { proje
           </AIMessage>
           <button onClick={() => { advance(); router.refresh() }}
             className="btn-primary w-full py-3.5 rounded-xl font-semibold flex items-center justify-center gap-2 press mt-4">
-            <MessageSquare size={14} /> Add Lecturer Feedback <ArrowRight size={14} />
+            <MessageSquare size={14} color="#fff" /> Add Lecturer Feedback <ArrowRight size={14} color="#fff" />
           </button>
         </div>
       )}
+
+      {/* Chapter viewer modal */}
+      <ChapterViewer
+        chapter={viewing}
+        projectTitle={project.title}
+        onClose={() => setViewing(null)}
+      />
     </div>
   )
 }

@@ -101,6 +101,17 @@ export async function POST(request: Request) {
       )
     }
 
+    const STYLE_RULES = `
+WRITING STYLE — STRICT RULES:
+1. Format headings as plain numbered text on their own lines, e.g. "1.1 Background to the Study". Do NOT use markdown symbols (no #, ##, ###, **, *). The chapter title at the top is the only exception (e.g. "CHAPTER ONE: INTRODUCTION" on its own line).
+2. Avoid em dashes (—). Use commas, semicolons, colons, parentheses, or periods instead.
+3. Use plain numbered lists (1. 2. 3.) or bullet hyphens (- ) where lists are needed.
+4. Write in formal Nigerian academic English. Use full words, not contractions.
+5. Use proper paragraph breaks (one blank line between paragraphs).
+6. For tables, use clean markdown tables only where Section 4 specifically calls for them.
+7. Do not add meta-commentary, prefaces, or "in this chapter we will..." filler. Get straight to the content.
+`.trim()
+
     const message = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 3000,
@@ -116,7 +127,7 @@ Writing: Chapter ${chapterNumber} (${chapterTitle}) — PART ${partNum} of 2
 
 ${chapterPrompt}
 
-Write in formal academic English. Be thorough but stay within the section scope above.`,
+${STYLE_RULES}`,
       }],
     })
 
