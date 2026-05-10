@@ -75,8 +75,14 @@ export function OtpInput({
     refs.current[Math.min(pasted.length, length - 1)]?.focus()
   }
 
+  // Auto-shrink boxes when there are more of them so they always fit phone width
+  const sizing = length >= 8
+    ? 'w-8 h-11 sm:w-10 sm:h-12 text-base'
+    : 'w-11 h-12 sm:w-12 sm:h-14 text-lg'
+  const gap = length >= 8 ? 'gap-1.5 sm:gap-2' : 'gap-2 sm:gap-3'
+
   return (
-    <div className={cn('flex items-center justify-center gap-2 sm:gap-3', className)}>
+    <div className={cn('flex items-center justify-center', gap, className)}>
       {Array.from({ length }).map((_, i) => {
         const ch = value[i] ?? ''
         return (
@@ -93,7 +99,8 @@ export function OtpInput({
             onKeyDown={e => handleKey(i, e)}
             onPaste={handlePaste}
             className={cn(
-              'w-11 h-12 sm:w-12 sm:h-14 text-center text-lg font-semibold rounded-xl outline-none transition-all',
+              sizing,
+              'text-center font-semibold rounded-xl outline-none transition-all',
               'bg-[rgba(255,255,255,0.05)] text-white border',
               ch ? 'border-white/40' : 'border-[rgba(255,255,255,0.08)]',
               'focus:border-white/60 focus:bg-[rgba(255,255,255,0.08)] focus:shadow-[0_0_0_3px_rgba(255,255,255,0.06)]',

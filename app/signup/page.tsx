@@ -295,12 +295,13 @@ export default function SignupPage() {
                   <span className="text-white font-medium">{email}</span>
                 </p>
                 <p className="text-xs mt-3 leading-relaxed" style={{ color: 'var(--foreground-dim)' }}>
-                  Enter the 6-digit code below, <span className="text-white">or</span> click the link in the email to confirm.
+                  Enter the code below, <span className="text-white">or</span> click the link in the email to confirm.
                 </p>
               </div>
 
               <div className="mb-5">
                 <OtpInput
+                  length={8}
                   value={otp}
                   onChange={setOtp}
                   onComplete={handleVerifyOtp}
@@ -328,7 +329,7 @@ export default function SignupPage() {
 
               <Button
                 onClick={() => handleVerifyOtp(otp)}
-                disabled={otp.length !== 6 || loading}
+                disabled={otp.length < 6 || loading}
                 variant="primary"
                 size="lg"
                 className="w-full mb-3"
