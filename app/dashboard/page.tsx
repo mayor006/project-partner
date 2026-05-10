@@ -191,7 +191,7 @@ export default async function DashboardPage() {
                 <Link
                   key={project.id}
                   href={`/project/${project.id}`}
-                  className="glass group flex items-center gap-3 sm:gap-5 p-4 sm:p-5 rounded-2xl transition-all duration-200 hover:bg-white/5 hover:border-white/12 anim-entrance"
+                  className="glass group flex items-center gap-3 sm:gap-5 p-4 sm:p-5 rounded-2xl transition-all duration-200 hover:bg-white/5 hover:border-white/12 anim-entrance w-full max-w-full overflow-hidden"
                   style={{ animationDelay: `${i * 0.06}s` }}
                 >
                   {/* Stage indicator */}
