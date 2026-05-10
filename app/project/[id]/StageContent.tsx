@@ -840,83 +840,87 @@ function Stage3Chapters({ project, chapters: initialChapters, advance }: { proje
                 opacity: isLocked ? 0.55 : 1,
               }}
             >
-              {/* ── Header row ───────────────────────── */}
-              <div className="flex items-center justify-between gap-3 p-4">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={pillStyle}>
+              {/* ── Card body — two rows on mobile, single row on sm+ ─── */}
+              <div className="p-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
+                {/* Row 1: pill + identity */}
+                <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={pillStyle}>
                     {pillIcon}
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium flex items-center gap-2">
-                      Chapter {chNum}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <span className="text-sm font-semibold leading-none">Chapter {chNum}</span>
                       {isApproved && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold" style={{ background: 'rgba(255,255,255,0.12)', color: '#fff' }}>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold leading-none" style={{ background: 'rgba(255,255,255,0.12)', color: '#fff' }}>
                           APPROVED
                         </span>
                       )}
                       {isPendingReview && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold" style={{ background: 'rgba(245,158,11,0.18)', color: '#fbbf24' }}>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold leading-none whitespace-nowrap" style={{ background: 'rgba(245,158,11,0.18)', color: '#fbbf24' }}>
                           AWAITING REVIEW
                         </span>
                       )}
-                      {chapter && chapter.revision_count && chapter.revision_count > 0 && (
-                        <span className="text-[10px]" style={{ color: 'var(--foreground-dim)' }}>
+                      {chapter?.revision_count ? (
+                        <span className="text-[10px] leading-none" style={{ color: 'var(--foreground-dim)' }}>
                           · rev {chapter.revision_count}
                         </span>
-                      )}
-                    </p>
-                    <p className="text-[11px] truncate" style={{ color: 'var(--foreground-muted)' }}>
-                      {title}{isDone && chapter && <span> · {chapter.word_count.toLocaleString()} words</span>}
+                      ) : null}
+                    </div>
+                    <p className="text-[12px] truncate" style={{ color: 'var(--foreground-muted)' }}>
+                      {title}{isDone && chapter ? ` · ${chapter.word_count.toLocaleString()} words` : null}
                     </p>
                   </div>
                 </div>
 
-                {/* Right action buttons */}
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  {isDone && chapter && (
-                    <button
-                      onClick={() => setViewing(chapter)}
-                      className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg btn-ghost press"
-                      title="Open chapter — copy or download"
-                    >
-                      <Eye size={12} color="#fff" />
-                      View
-                    </button>
-                  )}
-                  {!isDone && !isWriting && !isLocked && chNum !== 4 && (
-                    <label
-                      className="flex items-center gap-1.5 text-[10px] px-2 py-1 rounded-lg cursor-pointer transition-colors hover:bg-white/5"
-                      style={{ color: 'var(--foreground-dim)' }}
-                      title="Tell AI to include tables/charts"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={!!includeTables[chNum]}
-                        onChange={e => setIncludeTables(prev => ({ ...prev, [chNum]: e.target.checked }))}
-                        className="accent-white w-3 h-3"
-                      />
-                      Tables
-                    </label>
-                  )}
-                  {!isDone && !isWriting && !isLocked && (
-                    <button
-                      onClick={() => writeChapter(chNum)}
-                      disabled={writing !== null}
-                      className="btn-primary text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 press disabled:opacity-40"
-                    >
-                      <Sparkles size={11} color="#fff" /> Write
-                    </button>
-                  )}
-                  {isLocked && !isDone && (
-                    <span className="text-[10px] px-2 py-1 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)', color: 'var(--foreground-dim)' }}>
-                      Locked
-                    </span>
-                  )}
-                  {(isWriting || isRevising) && (
-                    <span className="text-xs flex items-center gap-1.5" style={{ color: '#fff' }}>
+                {/* Row 2: actions */}
+                <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap sm:flex-shrink-0">
+                  {(isWriting || isRevising) ? (
+                    <span className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg" style={{ color: '#fff', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border)' }}>
                       <Loader2 size={11} className="animate-spin" color="#fff" />
                       {isWriting ? `Writing ${writingPart ?? 1}/2…` : 'Revising…'}
                     </span>
+                  ) : (
+                    <>
+                      {isDone && chapter && (
+                        <button
+                          onClick={() => setViewing(chapter)}
+                          className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg btn-ghost press"
+                          title="Open chapter — copy or download"
+                        >
+                          <Eye size={12} color="#fff" />
+                          View
+                        </button>
+                      )}
+                      {!isDone && !isLocked && chNum !== 4 && (
+                        <label
+                          className="flex items-center gap-1.5 text-[10px] px-2 py-1 rounded-lg cursor-pointer transition-colors hover:bg-white/5"
+                          style={{ color: 'var(--foreground-dim)' }}
+                          title="Tell AI to include tables/charts"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={!!includeTables[chNum]}
+                            onChange={e => setIncludeTables(prev => ({ ...prev, [chNum]: e.target.checked }))}
+                            className="accent-white w-3 h-3"
+                          />
+                          Tables
+                        </label>
+                      )}
+                      {!isDone && !isLocked && (
+                        <button
+                          onClick={() => writeChapter(chNum)}
+                          disabled={writing !== null}
+                          className="btn-primary text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 press disabled:opacity-40"
+                        >
+                          <Sparkles size={11} color="#fff" /> Write
+                        </button>
+                      )}
+                      {isLocked && !isDone && (
+                        <span className="text-[10px] px-2 py-1 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)', color: 'var(--foreground-dim)' }}>
+                          Locked
+                        </span>
+                      )}
+                    </>
                   )}
                 </div>
               </div>

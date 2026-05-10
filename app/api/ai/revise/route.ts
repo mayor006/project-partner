@@ -101,7 +101,10 @@ Return ONLY the full revised content, with the lecturer's requested changes appl
 
     const message = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 6000,
+      // Sonnet streams ~75 tok/s. 4000 tokens ≈ 53s, fits under the 60s
+      // Vercel function ceiling. Most chapters are 2800-3000 tokens so the
+      // revised output rarely needs more.
+      max_tokens: 4000,
       system: systemPrompt,
       messages: [{ role: 'user', content: userBlocks }],
     })
