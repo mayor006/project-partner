@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { Project, Chapter, ProjectStageData, ProjectStructure, DefenseQA } from '@/types'
 import { PromptInputBox } from '@/components/ui/ai-prompt-box'
+import { FeedbackInput } from '@/components/ui/feedback-input'
 import { ChapterViewer } from '@/components/chapter-viewer'
 import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
@@ -140,7 +141,7 @@ export default function StageContent({ project, stages, chapters }: Props) {
   if (project.stage === 1)
     return <Stage1TopicDiscovery project={project} advance={() => advanceStage(2, 'project_structure')} />
   if (project.stage === 2)
-    return <Stage2Structure project={project} advance={() => advanceStage(3, 'chapter_writing')} />
+    return <Stage2Structure project={project} stages={stages} advance={() => advanceStage(3, 'chapter_writing')} />
   if (project.stage === 3)
     return <Stage3Chapters project={project} chapters={chapters} advance={() => advanceStage(4, 'lecturer_feedback')} />
   if (project.stage === 4)
@@ -191,9 +192,18 @@ function Stage1TopicDiscovery({ project, advance }: { project: Project; advance:
 /* ══════════════════════════════════════════
    Stage 2 — Project Structure
 ══════════════════════════════════════════ */
-function Stage2Structure({ project, advance }: { project: Project; advance: () => void }) {
+function Stage2Structure({ project, stages, advance }: { project: Project; stages: ProjectStageData[]; advance: () => void }) {
+  const savedStage = stages.find(s => s.stage_number === 2)
+  const savedStructure = (savedStage?.content as { structure?: ProjectStructure } | undefined)?.structure ?? null
+
   const [loading, setLoading] = useState(false)
-  const [structure, setStructure] = useState<ProjectStructure | null>(null)
+  const [structure, setStructure] = useState<ProjectStructure | null>(savedStructure)
+  const [approvalStatus, setApprovalStatus] = useState<'pending_review' | 'in_revision' | 'approved'>(
+    (savedStage?.approval_status as 'pending_review' | 'in_revision' | 'approved') ?? 'pending_review',
+  )
+  const [feedbackOpen, setFeedbackOpen] = useState(false)
+  const [revising, setRevising] = useState(false)
+  const [approveDraft, setApproveDraft] = useState('')
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
   const router = useRouter()
@@ -240,6 +250,124 @@ function Stage2Structure({ project, advance }: { project: Project; advance: () =
       title: project.title,
       blocks: structureBlocks(structure),
     })
+  }
+
+  /** Format the structure as plain text (for the AI to revise as text) */
+  function structureToText(s: ProjectStructure): string {
+    let out = ''
+    s.chapters.forEach(ch => {
+      out += `Chapter ${ch.number}: ${ch.title}\n`
+      if (ch.description) out += `${ch.description}\n`
+      ch.sections.forEach(sec => { out += `  - ${sec}\n` })
+      out += '\n'
+    })
+    if (s.estimated_pages) out += `Estimated pages: ${s.estimated_pages}\n`
+    return out.trim()
+  }
+
+  /** Parse revised plain text back into a ProjectStructure (lenient parser) */
+  function parseRevisedStructure(text: string): ProjectStructure {
+    const chapters: ProjectStructure['chapters'] = []
+    let estimated_pages = structure?.estimated_pages ?? 70
+    let current: ProjectStructure['chapters'][number] | null = null
+
+    for (const rawLine of text.split('\n')) {
+      const line = rawLine.trimEnd()
+      if (!line.trim()) continue
+
+      const chMatch = line.match(/^chapter\s*(\d+)\s*[:.\-—]?\s*(.+)$/i)
+      if (chMatch) {
+        if (current) chapters.push(current)
+        current = { number: parseInt(chMatch[1], 10), title: chMatch[2].trim(), description: '', sections: [] }
+        continue
+      }
+
+      const pagesMatch = line.match(/estimated\s+pages?:?\s*(\d+)/i)
+      if (pagesMatch) { estimated_pages = parseInt(pagesMatch[1], 10); continue }
+
+      if (!current) continue
+
+      // Section bullet
+      if (/^\s*[-*•]\s+/.test(line) || /^\s*\d+\.\d+/.test(line.trim())) {
+        current.sections.push(line.replace(/^\s*[-*•]\s+/, '').trim())
+        continue
+      }
+
+      // Description (first non-bullet, non-chapter prose line)
+      if (!current.description) {
+        current.description = line.trim()
+      } else {
+        current.description += ' ' + line.trim()
+      }
+    }
+    if (current) chapters.push(current)
+
+    return { chapters, estimated_pages }
+  }
+
+  async function reviseStructure(payload: { text: string; images: { dataUrl: string; mediaType: string }[]; audioTranscript?: string }) {
+    if (!structure || revising) return
+    setRevising(true); setError('')
+    try {
+      const before = structureToText(structure)
+      const res = await fetch('/api/ai/revise', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contentToRevise: before,
+          kind: 'structure',
+          projectTitle: project.title,
+          department: project.department,
+          level: project.level,
+          feedbackText: payload.text,
+          audioTranscript: payload.audioTranscript,
+          images: payload.images.map(i => ({ data: i.dataUrl, mediaType: i.mediaType })),
+        }),
+      })
+      const ct = res.headers.get('content-type') ?? ''
+      if (!ct.includes('application/json')) {
+        if (res.status === 504) throw new Error('Revision took too long. Please try again.')
+        throw new Error(`Server returned ${res.status}.`)
+      }
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Revision failed')
+
+      const revised = parseRevisedStructure(data.revised as string)
+      setStructure(revised)
+
+      const supabase = createClient()
+      await supabase.from('pp_project_stages').upsert({
+        project_id: project.id, stage_number: 2, stage_name: 'project_structure',
+        content: { structure: revised }, status: 'completed', approval_status: 'in_revision',
+      }, { onConflict: 'project_id,stage_number' })
+
+      await supabase.from('pp_chapter_feedback').insert({
+        project_id: project.id, chapter_id: null, stage_number: 2,
+        feedback_text: payload.text || '(image/audio only)',
+        attachments: payload.images.map(() => ({ kind: 'image' as const, name: 'screenshot' })),
+        audio_transcript: payload.audioTranscript ?? null,
+        before_content: before,
+        after_content: data.revised,
+      })
+
+      setApprovalStatus('in_revision')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Revision failed')
+    } finally {
+      setRevising(false)
+    }
+  }
+
+  async function approveStructure() {
+    const supabase = createClient()
+    await supabase.from('pp_project_stages').upsert({
+      project_id: project.id, stage_number: 2, stage_name: 'project_structure',
+      content: { structure }, status: 'completed', approval_status: 'approved',
+      approved_at: new Date().toISOString(),
+    }, { onConflict: 'project_id,stage_number' })
+    setApprovalStatus('approved')
+    setFeedbackOpen(false)
+    setApproveDraft('')
   }
 
   async function generate() {
@@ -370,10 +498,84 @@ function Stage2Structure({ project, advance }: { project: Project; advance: () =
             </button>
           </div>
 
-          <button onClick={() => { advance(); router.refresh() }}
-            className="btn-primary w-full py-3.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 press anim-entrance stagger-4">
-            <FileText size={14} color="#fff" /> Approve & Write Chapters <ArrowRight size={14} color="#fff" />
-          </button>
+          {/* Approval gate — same pattern as chapters */}
+          {approvalStatus === 'approved' ? (
+            <button onClick={() => { advance(); router.refresh() }}
+              className="btn-primary w-full py-3.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 press anim-entrance stagger-4">
+              <CheckCircle size={14} color="#fff" /> Continue to Chapter Writing <ArrowRight size={14} color="#fff" />
+            </button>
+          ) : (
+            <div className="glass rounded-2xl overflow-hidden anim-entrance stagger-4">
+              <div className="p-4 flex items-center gap-3 border-b" style={{ borderColor: 'var(--border)' }}>
+                <AlertCircle size={14} color="#fbbf24" className="flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium">Awaiting supervisor approval</p>
+                  <p className="text-[11px]" style={{ color: 'var(--foreground-muted)' }}>
+                    Show this structure to your supervisor before chapter writing begins.
+                  </p>
+                </div>
+                {!feedbackOpen && (
+                  <button
+                    onClick={() => setFeedbackOpen(true)}
+                    className="btn-ghost text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 press"
+                  >
+                    <MessageSquare size={11} color="#fff" /> Add feedback
+                  </button>
+                )}
+              </div>
+
+              {feedbackOpen && (
+                <div className="p-4 flex flex-col gap-3 anim-entrance-sm">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold" style={{ color: 'var(--foreground-muted)' }}>
+                      LECTURER&apos;S FEEDBACK
+                    </p>
+                    <button onClick={() => setFeedbackOpen(false)} className="text-[11px]" style={{ color: 'var(--foreground-dim)' }}>
+                      Hide
+                    </button>
+                  </div>
+
+                  <FeedbackInput
+                    loading={revising}
+                    onSend={async (payload) => {
+                      await reviseStructure({
+                        text: payload.text,
+                        images: payload.images.map(i => ({ dataUrl: i.dataUrl, mediaType: i.mediaType })),
+                        audioTranscript: payload.audioTranscript,
+                      })
+                    }}
+                    placeholder="Paste supervisor's comments on the structure…"
+                  />
+
+                  <div
+                    className="rounded-xl p-3 mt-1"
+                    style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}
+                  >
+                    <p className="text-xs font-medium mb-2">Lecturer approved this structure?</p>
+                    <p className="text-[11px] mb-3" style={{ color: 'var(--foreground-muted)' }}>
+                      Type <span className="font-mono font-bold text-white">APPROVED</span> below to lock and proceed to chapter writing.
+                    </p>
+                    <div className="flex gap-2">
+                      <input
+                        value={approveDraft}
+                        onChange={e => setApproveDraft(e.target.value)}
+                        placeholder="Type APPROVED"
+                        className="input-field flex-1 text-sm uppercase tracking-wider"
+                        autoComplete="off"
+                      />
+                      <button
+                        onClick={approveStructure}
+                        disabled={approveDraft.trim().toUpperCase() !== 'APPROVED'}
+                        className="btn-primary text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 press disabled:opacity-40 whitespace-nowrap"
+                      >
+                        <CheckCircle size={11} color="#fff" /> Lock in
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </>
       )}
     </div>
@@ -390,6 +592,10 @@ function Stage3Chapters({ project, chapters: initialChapters, advance }: { proje
   const [viewing, setViewing] = useState<Chapter | null>(null)
   const [includeTables, setIncludeTables] = useState<Record<number, boolean>>({})
   const [error, setError] = useState('')
+  // Approval-gate state
+  const [feedbackOpen, setFeedbackOpen] = useState<number | null>(null)
+  const [revising, setRevising] = useState<number | null>(null)
+  const [approveDraft, setApproveDraft] = useState<Record<number, string>>({})
   const router = useRouter()
 
   const chapterTitles = ['Introduction', 'Literature Review', 'Research Methodology', 'Data Presentation and Analysis', 'Summary, Conclusion and Recommendations']
@@ -468,8 +674,109 @@ function Stage3Chapters({ project, chapters: initialChapters, advance }: { proje
     }
   }
 
+  /* ── Approval & revision flow ─────────────────────── */
+  async function approveChapter(chNum: number) {
+    const chapter = chapters.find(c => c.chapter_number === chNum)
+    if (!chapter) return
+    const supabase = createClient()
+    const { data, error: dbError } = await supabase
+      .from('pp_chapters')
+      .update({ approval_status: 'approved', approved_at: new Date().toISOString() })
+      .eq('id', chapter.id)
+      .select()
+      .single()
+    if (dbError) { setError(dbError.message); return }
+    if (data) {
+      setChapters(prev =>
+        prev.map(c => c.id === chapter.id ? (data as Chapter) : c).sort((a, b) => a.chapter_number - b.chapter_number)
+      )
+      setApproveDraft(prev => ({ ...prev, [chNum]: '' }))
+      setFeedbackOpen(null)
+    }
+  }
+
+  async function reviseChapter(
+    chNum: number,
+    payload: { text: string; images: { dataUrl: string; mediaType: string }[]; audioTranscript?: string },
+  ) {
+    const chapter = chapters.find(c => c.chapter_number === chNum)
+    if (!chapter || revising !== null) return
+    setRevising(chNum)
+    setError('')
+    try {
+      const res = await fetch('/api/ai/revise', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contentToRevise: chapter.content,
+          kind: 'chapter',
+          chapterNumber: chNum,
+          chapterTitle: chapter.title,
+          projectTitle: project.title,
+          department: project.department,
+          level: project.level,
+          feedbackText: payload.text,
+          audioTranscript: payload.audioTranscript,
+          images: payload.images.map(i => ({ data: i.dataUrl, mediaType: i.mediaType })),
+        }),
+      })
+      const ct = res.headers.get('content-type') ?? ''
+      if (!ct.includes('application/json')) {
+        if (res.status === 504) throw new Error('Revision took too long. Please try again.')
+        throw new Error(`Server returned ${res.status}.`)
+      }
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Revision failed')
+
+      const supabase = createClient()
+      const newWordCount = (data.revised as string).split(/\s+/).filter(Boolean).length
+      const { data: saved, error: dbError } = await supabase
+        .from('pp_chapters')
+        .update({
+          content: data.revised,
+          word_count: newWordCount,
+          approval_status: 'in_revision',
+          revision_count: (chapter.revision_count ?? 0) + 1,
+        })
+        .eq('id', chapter.id)
+        .select()
+        .single()
+      if (dbError) throw new Error(dbError.message)
+
+      // Save the feedback round to history
+      await supabase.from('pp_chapter_feedback').insert({
+        project_id: project.id,
+        chapter_id: chapter.id,
+        feedback_text: payload.text || '(image/audio only)',
+        attachments: payload.images.map(i => ({ kind: 'image' as const, name: 'screenshot' })),
+        audio_transcript: payload.audioTranscript ?? null,
+        before_content: chapter.content,
+        after_content: data.revised,
+      })
+
+      if (saved) setChapters(prev =>
+        prev.map(c => c.id === chapter.id ? (saved as Chapter) : c).sort((a, b) => a.chapter_number - b.chapter_number)
+      )
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Revision failed')
+    } finally {
+      setRevising(null)
+    }
+  }
+
+  /** Index of the first chapter not yet approved — chapters after this are locked. */
+  function nextUnapprovedIdx(): number {
+    for (let i = 0; i < chapterTitles.length; i++) {
+      const ch = chapters.find(c => c.chapter_number === i + 1)
+      if (!ch || ch.approval_status !== 'approved') return i
+    }
+    return chapterTitles.length
+  }
+
   const allDone = chapterTitles.every((_, i) => chapters.find(c => c.chapter_number === i + 1 && c.status === 'completed'))
+  const allApproved = chapterTitles.every((_, i) => chapters.find(c => c.chapter_number === i + 1 && c.approval_status === 'approved'))
   const totalWords = chapters.reduce((sum, c) => sum + (c.word_count ?? 0), 0)
+  const unlockIdx = nextUnapprovedIdx()
 
   return (
     <div className="flex flex-col gap-5">
@@ -497,25 +804,75 @@ function Stage3Chapters({ project, chapters: initialChapters, advance }: { proje
           const chapter = chapters.find(c => c.chapter_number === chNum)
           const isDone = chapter?.status === 'completed'
           const isWriting = writing === chNum
+          const isApproved = chapter?.approval_status === 'approved'
+          const isPendingReview = isDone && !isApproved
+          const isLocked = i > unlockIdx
+          const isFeedbackOpen = feedbackOpen === chNum
+          const isRevising = revising === chNum
+          const draft = approveDraft[chNum] ?? ''
+
+          // Pill style based on status
+          let pillStyle: React.CSSProperties
+          let pillIcon: React.ReactNode
+          if (isApproved) {
+            pillStyle = { background: '#fff', color: '#000' }
+            pillIcon = <CheckCircle size={14} color="#000" />
+          } else if (isWriting || isRevising) {
+            pillStyle = { background: 'rgba(255,255,255,0.12)', color: '#fff' }
+            pillIcon = <Loader2 size={14} className="animate-spin" color="#fff" />
+          } else if (isPendingReview) {
+            pillStyle = { background: 'rgba(245,158,11,0.18)', color: '#fbbf24' }
+            pillIcon = <AlertCircle size={14} color="#fbbf24" />
+          } else if (isLocked) {
+            pillStyle = { background: 'rgba(255,255,255,0.03)', color: 'rgba(255,255,255,0.25)' }
+            pillIcon = <span className="text-xs font-bold">{chNum}</span>
+          } else {
+            pillStyle = { background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.6)' }
+            pillIcon = <span className="text-xs font-bold">{chNum}</span>
+          }
 
           return (
-            <div key={chNum} className="glass rounded-2xl overflow-hidden anim-entrance" style={{ animationDelay: `${i * 0.06}s` }}>
-              <div className="flex items-center justify-between p-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold flex-shrink-0"
-                    style={isDone ? { background: '#fff', color: '#000' }
-                      : isWriting ? { background: 'rgba(255,255,255,0.12)', color: '#fff' }
-                      : { background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.4)' }}>
-                    {isDone ? <CheckCircle size={14} color="#000" /> : isWriting ? <Loader2 size={14} className="animate-spin" color="#fff" /> : chNum}
+            <div
+              key={chNum}
+              className="glass rounded-2xl overflow-hidden anim-entrance"
+              style={{
+                animationDelay: `${i * 0.06}s`,
+                opacity: isLocked ? 0.55 : 1,
+              }}
+            >
+              {/* ── Header row ───────────────────────── */}
+              <div className="flex items-center justify-between gap-3 p-4">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={pillStyle}>
+                    {pillIcon}
                   </div>
-                  <div>
-                    <p className="text-sm font-medium">Chapter {chNum}</p>
-                    <p className="text-[11px]" style={{ color: 'var(--foreground-muted)' }}>
-                      {title}{isDone && chapter && <span style={{ color: '#fff' }}> · {chapter.word_count.toLocaleString()} words</span>}
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium flex items-center gap-2">
+                      Chapter {chNum}
+                      {isApproved && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold" style={{ background: 'rgba(255,255,255,0.12)', color: '#fff' }}>
+                          APPROVED
+                        </span>
+                      )}
+                      {isPendingReview && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold" style={{ background: 'rgba(245,158,11,0.18)', color: '#fbbf24' }}>
+                          AWAITING REVIEW
+                        </span>
+                      )}
+                      {chapter && chapter.revision_count && chapter.revision_count > 0 && (
+                        <span className="text-[10px]" style={{ color: 'var(--foreground-dim)' }}>
+                          · rev {chapter.revision_count}
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-[11px] truncate" style={{ color: 'var(--foreground-muted)' }}>
+                      {title}{isDone && chapter && <span> · {chapter.word_count.toLocaleString()} words</span>}
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+
+                {/* Right action buttons */}
+                <div className="flex items-center gap-2 flex-shrink-0">
                   {isDone && chapter && (
                     <button
                       onClick={() => setViewing(chapter)}
@@ -526,11 +883,11 @@ function Stage3Chapters({ project, chapters: initialChapters, advance }: { proje
                       View
                     </button>
                   )}
-                  {!isDone && !isWriting && chNum !== 4 && (
+                  {!isDone && !isWriting && !isLocked && chNum !== 4 && (
                     <label
                       className="flex items-center gap-1.5 text-[10px] px-2 py-1 rounded-lg cursor-pointer transition-colors hover:bg-white/5"
                       style={{ color: 'var(--foreground-dim)' }}
-                      title="Tell AI to include tables/charts in this chapter"
+                      title="Tell AI to include tables/charts"
                     >
                       <input
                         type="checkbox"
@@ -541,39 +898,142 @@ function Stage3Chapters({ project, chapters: initialChapters, advance }: { proje
                       Tables
                     </label>
                   )}
-                  {!isDone && !isWriting && (
-                    <button onClick={() => writeChapter(chNum)} disabled={writing !== null}
-                      className="btn-primary text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 press disabled:opacity-40">
+                  {!isDone && !isWriting && !isLocked && (
+                    <button
+                      onClick={() => writeChapter(chNum)}
+                      disabled={writing !== null}
+                      className="btn-primary text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 press disabled:opacity-40"
+                    >
                       <Sparkles size={11} color="#fff" /> Write
                     </button>
                   )}
-                  {isWriting && (
+                  {isLocked && !isDone && (
+                    <span className="text-[10px] px-2 py-1 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)', color: 'var(--foreground-dim)' }}>
+                      Locked
+                    </span>
+                  )}
+                  {(isWriting || isRevising) && (
                     <span className="text-xs flex items-center gap-1.5" style={{ color: '#fff' }}>
                       <Loader2 size={11} className="animate-spin" color="#fff" />
-                      Writing part {writingPart ?? 1}/2…
+                      {isWriting ? `Writing ${writingPart ?? 1}/2…` : 'Revising…'}
                     </span>
                   )}
                 </div>
               </div>
+
+              {/* ── Approval / feedback panel ──────────── */}
+              {isPendingReview && !isWriting && !isRevising && (
+                <div className="border-t px-4 pb-4 pt-3" style={{ borderColor: 'var(--border)' }}>
+                  {!isFeedbackOpen ? (
+                    <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+                      <p className="text-xs flex-1" style={{ color: 'var(--foreground-muted)' }}>
+                        Show this chapter to your supervisor. When approved, lock it in to unlock the next chapter.
+                      </p>
+                      <div className="flex gap-2 flex-shrink-0">
+                        <button
+                          onClick={() => setFeedbackOpen(chNum)}
+                          className="btn-ghost text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 press"
+                        >
+                          <MessageSquare size={11} color="#fff" />
+                          Add feedback
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-3 anim-entrance-sm">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-semibold" style={{ color: 'var(--foreground-muted)' }}>
+                          LECTURER&apos;S FEEDBACK
+                        </p>
+                        <button
+                          onClick={() => setFeedbackOpen(null)}
+                          className="text-[11px] transition-colors"
+                          style={{ color: 'var(--foreground-dim)' }}
+                        >
+                          Hide
+                        </button>
+                      </div>
+
+                      {/* Feedback input — text + images + voice */}
+                      <FeedbackInput
+                        loading={isRevising}
+                        onSend={async (payload) => {
+                          await reviseChapter(chNum, {
+                            text: payload.text,
+                            images: payload.images.map(i => ({ dataUrl: i.dataUrl, mediaType: i.mediaType })),
+                            audioTranscript: payload.audioTranscript,
+                          })
+                        }}
+                      />
+
+                      <p className="text-[11px]" style={{ color: 'var(--foreground-dim)' }}>
+                        AI will only revise the parts the lecturer flagged. Everything else stays untouched.
+                      </p>
+
+                      {/* Approval gate */}
+                      <div
+                        className="rounded-xl p-3 mt-1"
+                        style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}
+                      >
+                        <p className="text-xs font-medium mb-2" style={{ color: 'var(--foreground)' }}>
+                          Lecturer approved this chapter?
+                        </p>
+                        <p className="text-[11px] mb-3" style={{ color: 'var(--foreground-muted)' }}>
+                          Type <span className="font-mono font-bold text-white">APPROVED</span> below to lock this chapter and unlock the next one.
+                        </p>
+                        <div className="flex gap-2">
+                          <input
+                            value={draft}
+                            onChange={e => setApproveDraft(prev => ({ ...prev, [chNum]: e.target.value }))}
+                            placeholder="Type APPROVED"
+                            className="input-field flex-1 text-sm uppercase tracking-wider"
+                            autoComplete="off"
+                          />
+                          <button
+                            onClick={() => approveChapter(chNum)}
+                            disabled={draft.trim().toUpperCase() !== 'APPROVED'}
+                            className="btn-primary text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 press disabled:opacity-40 whitespace-nowrap"
+                          >
+                            <CheckCircle size={11} color="#fff" />
+                            Lock in
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )
         })}
       </div>
 
-      {allDone && (
+      {allDone && !allApproved && (
+        <div className="glass rounded-2xl p-4 anim-entrance stagger-3" style={{ background: 'rgba(245,158,11,0.05)', borderColor: 'rgba(245,158,11,0.2)' }}>
+          <p className="text-sm font-medium mb-1 flex items-center gap-2">
+            <AlertCircle size={14} color="#fbbf24" />
+            All chapters written. Awaiting supervisor approval.
+          </p>
+          <p className="text-xs" style={{ color: 'var(--foreground-muted)' }}>
+            Get each chapter approved by typing <span className="font-mono text-white">APPROVED</span> below it. Once all 5 are approved, you&apos;ll unlock the final stages.
+          </p>
+        </div>
+      )}
+
+      {allApproved && (
         <div className="anim-entrance stagger-3">
           <AIMessage>
             <p className="font-medium mb-1 flex items-center gap-2">
               <CheckCircle size={14} color="#fff" />
-              All {chapterTitles.length} chapters written!
+              All {chapterTitles.length} chapters approved!
             </p>
             <p style={{ color: 'var(--foreground-muted)' }}>
-              Total: {totalWords.toLocaleString()} words. Ready to incorporate your supervisor&apos;s feedback.
+              Total: {totalWords.toLocaleString()} words. Ready to move on to defense preparation.
             </p>
           </AIMessage>
           <button onClick={() => { advance(); router.refresh() }}
             className="btn-primary w-full py-3.5 rounded-xl font-semibold flex items-center justify-center gap-2 press mt-4">
-            <MessageSquare size={14} color="#fff" /> Add Lecturer Feedback <ArrowRight size={14} color="#fff" />
+            <Shield size={14} color="#fff" /> Continue to Defense Prep <ArrowRight size={14} color="#fff" />
           </button>
         </div>
       )}
