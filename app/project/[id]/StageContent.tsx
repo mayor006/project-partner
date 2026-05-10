@@ -10,8 +10,12 @@ import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from '@/components/ui/select'
 import {
+  blocksToPlainText, copyToClipboard, downloadAsWord, openPrintWindow,
+  type DocBlock,
+} from '@/lib/document-export'
+import {
   Sparkles, BookOpen, FileText, MessageSquare, Shield,
-  CheckCircle, RotateCcw, ArrowRight, Eye,
+  CheckCircle, RotateCcw, ArrowRight, Eye, Copy, Check, FileType,
   Loader2, AlertCircle, Brain,
 } from 'lucide-react'
 
@@ -191,7 +195,52 @@ function Stage2Structure({ project, advance }: { project: Project; advance: () =
   const [loading, setLoading] = useState(false)
   const [structure, setStructure] = useState<ProjectStructure | null>(null)
   const [error, setError] = useState('')
+  const [copied, setCopied] = useState(false)
   const router = useRouter()
+
+  /** Build the document blocks for the structure (used by copy + Word + PDF) */
+  function structureBlocks(s: ProjectStructure): DocBlock[] {
+    const blocks: DocBlock[] = [
+      { type: 'h1', text: project.title },
+      { type: 'p',  text: 'Project Structure & Chapter Outline' },
+    ]
+    if (s.estimated_pages) {
+      blocks.push({ type: 'p', text: `Estimated total pages: ${s.estimated_pages}` })
+    }
+    s.chapters.forEach(ch => {
+      blocks.push({ type: 'h2', text: `Chapter ${ch.number}: ${ch.title}` })
+      if (ch.description) blocks.push({ type: 'p', text: ch.description })
+      if (ch.sections?.length) {
+        blocks.push({ type: 'p', text: 'Sections:' })
+        blocks.push({ type: 'ul', items: ch.sections })
+      }
+    })
+    return blocks
+  }
+
+  async function handleCopy() {
+    if (!structure) return
+    await copyToClipboard(blocksToPlainText(structureBlocks(structure)))
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1800)
+  }
+
+  function handleWord() {
+    if (!structure) return
+    downloadAsWord({
+      fileName: `${project.title} — Project Structure`,
+      title: project.title,
+      blocks: structureBlocks(structure),
+    })
+  }
+
+  function handlePrint() {
+    if (!structure) return
+    openPrintWindow({
+      title: project.title,
+      blocks: structureBlocks(structure),
+    })
+  }
 
   async function generate() {
     setLoading(true); setError('')
@@ -286,15 +335,45 @@ function Stage2Structure({ project, advance }: { project: Project; advance: () =
               ))}
             </div>
           </AIMessage>
-          <div className="flex gap-3 anim-entrance stagger-3">
-            <button onClick={generate} className="btn-ghost flex-1 py-3 rounded-xl text-sm font-medium flex items-center justify-center gap-2 press">
-              <RotateCcw size={13} /> Regenerate
+          {/* Download / share actions — students show this to their supervisors */}
+          <div className="flex flex-wrap gap-2 anim-entrance stagger-3">
+            <button
+              onClick={handleCopy}
+              className="btn-ghost flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium press"
+              title="Copy structure as plain text"
+            >
+              {copied ? (
+                <><Check size={11} color="#fff" /> Copied</>
+              ) : (
+                <><Copy size={11} color="#fff" /> Copy</>
+              )}
             </button>
-            <button onClick={() => { advance(); router.refresh() }}
-              className="btn-primary flex-[2] py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 press">
-              <FileText size={13} /> Approve & Write Chapters <ArrowRight size={13} />
+            <button
+              onClick={handleWord}
+              className="btn-ghost flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium press"
+              title="Download as Word document (.doc)"
+            >
+              <FileText size={11} color="#fff" /> Word
+            </button>
+            <button
+              onClick={handlePrint}
+              className="btn-ghost flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium press"
+              title="Open print dialog (save as PDF from there)"
+            >
+              <FileType size={11} color="#fff" /> PDF
+            </button>
+            <button onClick={generate}
+              className="btn-ghost flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium press ml-auto"
+              title="Generate a new structure"
+            >
+              <RotateCcw size={11} color="#fff" /> Regenerate
             </button>
           </div>
+
+          <button onClick={() => { advance(); router.refresh() }}
+            className="btn-primary w-full py-3.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 press anim-entrance stagger-4">
+            <FileText size={14} color="#fff" /> Approve & Write Chapters <ArrowRight size={14} color="#fff" />
+          </button>
         </>
       )}
     </div>
