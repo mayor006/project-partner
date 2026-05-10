@@ -209,8 +209,20 @@ function Stage2Structure({ project, advance }: { project: Project; advance: () =
           interests: project.interests,
         }),
       })
+
+      // Vercel returns HTML on timeout; guard before res.json()
+      const ct = res.headers.get('content-type') ?? ''
+      if (!ct.includes('application/json')) {
+        if (res.status === 504) {
+          throw new Error('Generation took too long and timed out. Please retry — Anthropic is sometimes faster on the second try.')
+        }
+        throw new Error(`Server returned ${res.status}. Please retry.`)
+      }
+
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
+      if (!res.ok) throw new Error(data.error || `Server error (${res.status})`)
+      if (!data.structure) throw new Error('Empty response from AI. Please retry.')
+
       setStructure(data.structure)
       const supabase = createClient()
       await supabase.from('pp_project_stages').upsert({
